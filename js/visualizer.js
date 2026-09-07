@@ -9,10 +9,21 @@ class AudioVisualizer {
     this.canvas = document.getElementById(canvasId);
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
     this.barCount = options.barCount || 42;
-    this.activeColor = options.activeColor || '#6366f1';
-    this.idleColor = options.idleColor || '#475569';
+    this.activeColor = options.activeColor || '#4f46e5';
+    this.idleColor = options.idleColor || '#cbd5e1';
     this.animId = null;
     this.drawIdle();
+  }
+
+  /**
+   * Cập nhật màu sóng khi đổi giao diện Sáng / Tối
+   */
+  updateColors(activeColor, idleColor) {
+    this.activeColor = activeColor;
+    this.idleColor = idleColor;
+    if (!this.animId) {
+      this.drawIdle();
+    }
   }
 
   /**
@@ -46,7 +57,7 @@ class AudioVisualizer {
         const wave = Math.sin(time + i * 0.35) * 0.5 + 0.5;
         const height = Math.max(4, wave * (this.canvas.height - 4));
         this.ctx.fillStyle = this.activeColor;
-        this.ctx.fillRect(i * (barWidth + 2), (this.canvas.height - height) / 2, barWidth, height);
+        this.ctx.fillRect(i * (barWidth + 2), (canvasHeight = this.canvas.height - height) / 2, barWidth, height);
       }
 
       this.animId = requestAnimationFrame(render);

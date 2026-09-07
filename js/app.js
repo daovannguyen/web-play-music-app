@@ -7,10 +7,12 @@
 class AudioApp {
   constructor() {
     this.initElements();
+    this.initTheme();
+
     this.visualizer = new AudioVisualizer('visualizer', {
       barCount: 42,
-      activeColor: '#6366f1',
-      idleColor: '#475569'
+      activeColor: '#4f46e5',
+      idleColor: '#cbd5e1'
     });
 
     this.currentSpeed = 1.0;
@@ -55,10 +57,39 @@ class AudioApp {
     this.speedPlusBtn = document.getElementById('speedPlusBtn');
     this.speedButtons = document.querySelectorAll('.speed-pill');
     
+    this.themeToggleBtn = document.getElementById('themeToggleBtn');
     this.demoBtn = document.getElementById('demoBtn');
     this.clearBtn = document.getElementById('clearBtn');
     this.toast = document.getElementById('toast');
     this.toastText = document.getElementById('toastText');
+  }
+
+  /**
+   * Khởi tạo giao diện sáng / tối (Mặc định: Giao diện sáng 'light')
+   */
+  initTheme() {
+    const savedTheme = localStorage.getItem('app_theme') || 'light';
+    this.setTheme(savedTheme);
+
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        this.setTheme(isDark ? 'light' : 'dark');
+      });
+    }
+  }
+
+  setTheme(theme) {
+    localStorage.setItem('app_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      if (this.themeToggleBtn) this.themeToggleBtn.innerHTML = '☀️';
+      if (this.visualizer) this.visualizer.updateColors('#6366f1', '#475569');
+    } else {
+      document.documentElement.classList.remove('dark');
+      if (this.themeToggleBtn) this.themeToggleBtn.innerHTML = '🌙';
+      if (this.visualizer) this.visualizer.updateColors('#4f46e5', '#cbd5e1');
+    }
   }
 
   /**
@@ -143,14 +174,14 @@ class AudioApp {
     ['dragenter', 'dragover'].forEach(name => {
       this.dropZone.addEventListener(name, (e) => {
         e.preventDefault();
-        this.dropZone.classList.add('border-indigo-500', 'bg-indigo-950/40');
+        this.dropZone.classList.add('border-indigo-500', 'bg-indigo-50/60', 'dark:bg-indigo-950/40');
       });
     });
 
     ['dragleave', 'drop'].forEach(name => {
       this.dropZone.addEventListener(name, (e) => {
         e.preventDefault();
-        this.dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/40');
+        this.dropZone.classList.remove('border-indigo-500', 'bg-indigo-50/60', 'dark:bg-indigo-950/40');
       });
     });
 
@@ -324,10 +355,10 @@ class AudioApp {
       const btnSpeed = parseFloat(btn.dataset.speed);
       if (Math.abs(btnSpeed - this.currentSpeed) < 0.05) {
         btn.classList.add('active', 'bg-indigo-600', 'text-white', 'font-bold', 'shadow-md');
-        btn.classList.remove('bg-slate-800', 'text-slate-300', 'font-medium');
+        btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300', 'font-medium');
       } else {
         btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'font-bold', 'shadow-md');
-        btn.classList.add('bg-slate-800', 'text-slate-300', 'font-medium');
+        btn.classList.add('bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300', 'font-medium');
       }
     });
 
@@ -347,7 +378,6 @@ class AudioApp {
     // HTML5 Audio volume nhận dải [0.0, 1.0]
     this.audio.volume = rounded / 10;
     
-    // Cập nhật giá trị hiển thị rõ ràng: số mức và phần trăm
     if (this.volumeDisplay) {
       this.volumeDisplay.textContent = `${rounded.toFixed(1)} / 10`;
     }

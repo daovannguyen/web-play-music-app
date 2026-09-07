@@ -1,10 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Audio Speed Controller</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -17,9 +22,9 @@
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: #6366f1;
+      background: #4f46e5;
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 8px rgba(79, 70, 229, 0.4);
       transition: transform 0.15s ease;
     }
     input[type="range"]::-webkit-slider-thumb:hover {
@@ -34,10 +39,10 @@
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 selection:bg-indigo-500 selection:text-white">
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 selection:bg-indigo-500 selection:text-white transition-colors duration-300">
 
   <!-- Main Mobile App Shell -->
-  <main class="w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+  <main class="w-full max-w-md bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xl shadow-slate-300/40 dark:shadow-none relative overflow-hidden transition-colors duration-300">
     
     <!-- Toast Notification for Restore -->
     <div id="toast" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-emerald-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full shadow-lg transition-all duration-300 opacity-0 pointer-events-none -translate-y-3 flex items-center gap-1.5">
@@ -45,40 +50,44 @@
     </div>
 
     <!-- Ambient Background Glow -->
-    <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-400/10 dark:bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-400/10 dark:bg-violet-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Header -->
-    <header class="flex items-center justify-between pb-4 border-b border-slate-800/80">
+    <header class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800/80">
       <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-sm shadow-md shadow-indigo-500/20">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center text-sm text-white shadow-md shadow-indigo-500/20">
           ⚡
         </div>
         <div>
-          <h1 class="text-sm font-bold tracking-tight">Audio Speed App</h1>
-          <p class="text-[11px] text-slate-400">Trình phát & đổi tốc độ nhạc</p>
+          <h1 class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Audio Speed App</h1>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">Trình phát & đổi tốc độ nhạc</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="clearBtn" class="text-xs px-2.5 py-1 rounded-full text-rose-400 hover:bg-rose-500/10 transition border border-rose-500/20 hidden">
+      <div class="flex items-center gap-1.5">
+        <!-- Theme Toggle (Light / Dark) -->
+        <button id="themeToggleBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700" title="Chuyển giao diện Sáng / Tối">
+          🌙
+        </button>
+        <button id="clearBtn" class="text-xs px-2.5 py-1 rounded-full text-rose-500 hover:bg-rose-500/10 transition border border-rose-500/20 hidden">
           Xóa
         </button>
-        <button id="demoBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-indigo-400 font-medium transition flex items-center gap-1.5 border border-slate-700">
+        <button id="demoBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-medium transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700">
           <span>✨</span> Demo
         </button>
       </div>
     </header>
 
     <!-- Upload Dropzone -->
-    <div id="dropZone" class="mt-4 border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-800/30 hover:bg-indigo-950/20 group">
+    <div id="dropZone" class="mt-4 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/70 dark:bg-slate-800/30 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20 group">
       <input type="file" id="fileInput" accept="audio/*" class="hidden">
       <div class="flex flex-col items-center gap-1.5">
-        <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
+        <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
           🎵
         </div>
         <div>
-          <p class="text-xs font-semibold text-slate-200">Tải lên file âm thanh</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Tự động lưu lại, reload trang không mất</p>
+          <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">Tải lên file âm thanh</p>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Tự động lưu lại, reload trang không mất</p>
         </div>
       </div>
     </div>
@@ -87,7 +96,7 @@
     <div class="mt-4 flex flex-col items-center">
       <!-- Vinyl / Artwork -->
       <div class="relative flex items-center justify-center mb-3">
-        <div id="vinylDisc" class="w-24 h-24 rounded-full border-4 border-slate-800 bg-gradient-to-tr from-slate-950 via-slate-800 to-slate-900 shadow-xl flex items-center justify-center relative">
+        <div id="vinylDisc" class="w-24 h-24 rounded-full border-4 border-slate-200 dark:border-slate-800 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-950 shadow-xl flex items-center justify-center relative">
           <div class="w-18 h-18 rounded-full border border-slate-700/50 flex items-center justify-center">
             <div class="w-12 h-12 rounded-full border border-slate-700/40 flex items-center justify-center">
               <span class="text-xl">🎧</span>
@@ -99,18 +108,18 @@
         </div>
       </div>
 
-      <h2 id="trackTitle" class="text-xs font-bold text-center px-4 truncate max-w-full text-slate-100">Chưa có bài hát</h2>
-      <p id="trackMeta" class="text-[11px] text-slate-400 mt-0.5">Sẵn sàng phát nhạc</p>
+      <h2 id="trackTitle" class="text-xs font-bold text-center px-4 truncate max-w-full text-slate-900 dark:text-slate-100">Chưa có bài hát</h2>
+      <p id="trackMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Sẵn sàng phát nhạc</p>
 
       <!-- Waveform Canvas -->
-      <div class="w-full bg-slate-950/60 rounded-xl p-2 mt-3 border border-slate-800">
+      <div class="w-full bg-slate-100 dark:bg-slate-950/60 rounded-xl p-2 mt-3 border border-slate-200 dark:border-slate-800">
         <canvas id="visualizer" width="340" height="28" class="w-full h-7"></canvas>
       </div>
 
       <!-- Scrubber Timeline -->
       <div class="w-full mt-3 flex flex-col gap-1">
-        <input type="range" id="progressBar" min="0" max="100" value="0" step="0.1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-        <div class="flex justify-between text-[11px] font-mono text-slate-400">
+        <input type="range" id="progressBar" min="0" max="100" value="0" step="0.1" class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer">
+        <div class="flex justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
           <span id="currentTime">00:00</span>
           <span id="totalDuration">00:00</span>
         </div>
@@ -118,67 +127,67 @@
 
       <!-- Transport Controls -->
       <div class="flex items-center justify-center gap-5 mt-2">
-        <button id="rewindBtn" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center shadow" title="-5 giây">
+        <button id="rewindBtn" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm" title="-5 giây">
           -5s
         </button>
         <button id="playBtn" class="w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xl font-bold transition flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-95" title="Phát">
           ▶
         </button>
-        <button id="forwardBtn" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center shadow" title="+5 giây">
+        <button id="forwardBtn" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm" title="+5 giây">
           +5s
         </button>
       </div>
 
       <!-- Speed Control Section: 0.5x => 1.5x, Step 0.1 -->
-      <div class="w-full bg-slate-800/50 border border-slate-800 rounded-2xl p-3.5 mt-4">
+      <div class="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 mt-4">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-semibold text-slate-300">⚡ Tốc độ (0.5x - 1.5x):</span>
-          <span id="speedDisplay" class="text-xs font-mono font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/60">1.0x</span>
+          <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">⚡ Tốc độ (0.5x - 1.5x):</span>
+          <span id="speedDisplay" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 shadow-xs">1.0x</span>
         </div>
 
         <div class="flex items-center gap-2 mb-3">
-          <button id="speedMinusBtn" class="w-8 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-700 shadow-sm" title="Giảm 0.1x">
+          <button id="speedMinusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Giảm 0.1x">
             -0.1
           </button>
-          <input type="range" id="speedRange" min="0.5" max="1.5" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-          <button id="speedPlusBtn" class="w-8 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-700 shadow-sm" title="Tăng 0.1x">
+          <input type="range" id="speedRange" min="0.5" max="1.5" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <button id="speedPlusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Tăng 0.1x">
             +0.1
           </button>
         </div>
 
         <div class="grid grid-cols-6 gap-1 text-center">
-          <button data-speed="0.5" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">0.5x</button>
-          <button data-speed="0.6" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">0.6x</button>
-          <button data-speed="0.7" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">0.7x</button>
-          <button data-speed="0.8" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">0.8x</button>
-          <button data-speed="0.9" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">0.9x</button>
+          <button data-speed="0.5" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">0.5x</button>
+          <button data-speed="0.6" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">0.6x</button>
+          <button data-speed="0.7" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">0.7x</button>
+          <button data-speed="0.8" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">0.8x</button>
+          <button data-speed="0.9" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">0.9x</button>
           <button data-speed="1.0" class="speed-pill active py-1 text-[11px] font-bold rounded-lg bg-indigo-600 text-white transition shadow-md">1.0x</button>
-          <button data-speed="1.1" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">1.1x</button>
-          <button data-speed="1.2" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">1.2x</button>
-          <button data-speed="1.3" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">1.3x</button>
-          <button data-speed="1.4" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">1.4x</button>
-          <button data-speed="1.5" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">1.5x</button>
-          <button data-speed="1.0" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-800/60 text-slate-400 hover:bg-slate-700 transition" title="Đặt lại tốc độ chuẩn 1.0x">↺ 1.0</button>
+          <button data-speed="1.1" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">1.1x</button>
+          <button data-speed="1.2" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">1.2x</button>
+          <button data-speed="1.3" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">1.3x</button>
+          <button data-speed="1.4" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">1.4x</button>
+          <button data-speed="1.5" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition shadow-xs">1.5x</button>
+          <button data-speed="1.0" class="speed-pill py-1 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 hover:bg-slate-200 transition" title="Đặt lại tốc độ chuẩn 1.0x">↺ 1.0</button>
         </div>
       </div>
 
       <!-- Volume Control Section: 0 => 10, Step 0.1 -->
-      <div class="w-full bg-slate-800/50 border border-slate-800 rounded-2xl p-3.5 mt-3">
+      <div class="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 mt-3">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-1.5">
-            <button id="volumeIcon" class="text-slate-400 hover:text-slate-200 text-sm transition" title="Bật/Tắt tiếng">🔊</button>
-            <span class="text-xs font-semibold text-slate-300">Âm lượng (0 - 10):</span>
+            <button id="volumeIcon" class="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 text-sm transition" title="Bật/Tắt tiếng">🔊</button>
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Âm lượng (0 - 10):</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <span id="volumePercent" class="text-[11px] font-mono text-slate-400">85%</span>
-            <span id="volumeDisplay" class="text-xs font-mono font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/60">8.5 / 10</span>
+            <span id="volumePercent" class="text-[11px] font-mono text-slate-500 dark:text-slate-400">85%</span>
+            <span id="volumeDisplay" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 shadow-xs">8.5 / 10</span>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <button id="volMinusBtn" class="w-8 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-700 shadow-sm" title="Giảm 0.5">-0.5</button>
-          <input type="range" id="volumeBar" min="0" max="10" step="0.1" value="8.5" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-          <button id="volPlusBtn" class="w-8 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-700 shadow-sm" title="Tăng 0.5">+0.5</button>
+          <button id="volMinusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Giảm 0.5">-0.5</button>
+          <input type="range" id="volumeBar" min="0" max="10" step="0.1" value="8.5" class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <button id="volPlusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Tăng 0.5">+0.5</button>
         </div>
       </div>
 
