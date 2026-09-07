@@ -2,6 +2,7 @@
  * app.js - Controller chính của ứng dụng Audio Speed
  * - Kết nối các module: StorageService, Visualizer, DemoSynth
  * - Điều khiển luồng sự kiện DOM, giao diện và phần tử Audio HTML5
+ * - Tích hợp Web Audio API (GainNode + DynamicsCompressor) để khuếch đại âm thanh thực sự từ 0x đến 10x (1000%)
  */
 
 class AudioApp {
@@ -16,9 +17,16 @@ class AudioApp {
     });
 
     this.currentSpeed = 1.0;
+    this.currentVolume = 1.0; // 1.0x = 100% chuẩn, tối đa 10.0x = 1000% khuếch đại
+    this.prevVolume = 1.0;
     this.lastSavedProgress = 0;
     this.pendingResumeTime = null;
-    this.prevVolume = 8.5;
+
+    // Web Audio API Nodes
+    this.audioCtx = null;
+    this.gainNode = null;
+    this.compressor = null;
+    this.sourceNode = null;
 
     this.bindEvents();
     this.restoreSession();
@@ -36,7 +44,7 @@ class AudioApp {
     this.currentTimeEl = document.getElementById('currentTime');
     this.totalDurationEl = document.getElementById('totalDuration');
     
-    // Điều khiển âm lượng (Thang 0 -> 10, bước 0.1)
+    // Điều khiển âm lượng (Thang 0 -> 10, bước 0.1, khuếch đại thực tế tới 10x)
     this.volumeBar = document.getElementById('volumeBar');
     this.volumeIcon = document.getElementById('volumeIcon');
     this.volumeDisplay = document.getElementById('volumeDisplay');
@@ -62,6 +70,44 @@ class AudioApp {
     this.clearBtn = document.getElementById('clearBtn');
     this.toast = document.getElementById('toast');
     this.toastText = document.getElementById('toastText');
+  }
+
+  /**
+   * Khởi tạo Web Audio API để khuếch đại âm lượng thực sự (GainNode)
+   */
+  ensureAudioContext() {
+    if (this.audioCtx) {
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+      return;
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      this.audioCtx = new AudioContextClass();
+      this.gainNode = this.audioCtx.createGain();
+      
+      // Compressor chống vỡ âm thanh khi khuếch đại lớn (lên tới 10x)
+      this.compressor = this.audioCtx.createDynamicsCompressor();
+      this.compressor.threshold.setValueAtTime(-10, this.audioCtx.currentTime);
+      this.compressor.knee.setValueAtTime(30, this.audioCtx.currentTime);
+      this.compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
+      this.compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
+      this.compressor.release.setValueAtTime(0.25, this.audioCtx.currentTime);
+
+      this.sourceNode = this.audioCtx.createMediaElementSource(this.audio);
+      this.sourceNode.connect(this.gainNode);
+      this.gainNode.connect(this.compressor);
+      this.compressor.connect(this.audioCtx.destination);
+
+      // Cập nhật mức Gain theo giá trị hiện tại
+      this.gainNode.gain.setValueAtTime(this.currentVolume, this.audioCtx.currentTime);
+    } catch (e) {
+      console.warn('[AudioApp] Web Audio API init note:', e);
+    }
   }
 
   /**
@@ -112,11 +158,15 @@ class AudioApp {
     this.audio.addEventListener('ended', () => this.handleEnded());
 
     // 5. Điều khiển âm lượng (Slider 0 -> 10, bước 0.1 & Nút +/- 0.5)
-    this.volumeBar.addEventListener('input', (e) => this.handleVolumeChange(parseFloat(e.target.value)));
+    this.volumeBar.addEventListener('input', (e) => {
+      this.ensureAudioContext();
+      this.handleVolumeChange(parseFloat(e.target.value));
+    });
     this.volumeIcon.addEventListener('click', () => this.toggleMute());
     
     if (this.volMinusBtn) {
       this.volMinusBtn.addEventListener('click', () => {
+        this.ensureAudioContext();
         const cur = parseFloat(this.volumeBar.value);
         this.handleVolumeChange(cur - 0.5);
       });
@@ -124,6 +174,7 @@ class AudioApp {
 
     if (this.volPlusBtn) {
       this.volPlusBtn.addEventListener('click', () => {
+        this.ensureAudioContext();
         const cur = parseFloat(this.volumeBar.value);
         this.handleVolumeChange(cur + 0.5);
       });
@@ -201,6 +252,7 @@ class AudioApp {
       return;
     }
 
+    this.ensureAudioContext();
     await AudioStorage.saveAudioBlob(file);
     AudioStorage.saveMetadata(file.name, file.size, file.type);
     AudioStorage.saveProgress(0);
@@ -231,6 +283,7 @@ class AudioApp {
     }
 
     if (autoPlay) {
+      this.ensureAudioContext();
       this.audio.play()
         .then(() => this.updatePlayState(true))
         .catch(() => this.updatePlayState(false));
@@ -241,6 +294,8 @@ class AudioApp {
    * Bật / tắt phát nhạc
    */
   togglePlay() {
+    this.ensureAudioContext();
+
     if (!this.audio.src) {
       this.handleDemoClick();
       return;
@@ -368,21 +423,44 @@ class AudioApp {
   }
 
   /**
-   * Điều chỉnh âm lượng (Thang đo 0 đến 10, bước nhảy 0.1)
+   * Điều chỉnh âm lượng & khuếch đại (Volume Booster: 0.0x -> 10.0x, bước 0.1)
+   * - 0.0x: Tắt tiếng (0%)
+   * - 1.0x: Mức chuẩn 100%
+   * - 2.0x -> 10.0x: Khuếch đại âm lượng lên đến 1000% bằng Web Audio GainNode
    * @param {number} val Giá trị từ 0.0 đến 10.0
    */
   handleVolumeChange(val) {
     const rounded = Math.max(0, Math.min(10, Math.round(val * 10) / 10));
+    this.currentVolume = rounded;
     this.volumeBar.value = rounded;
+
+    // Đảm bảo Web Audio API được kích hoạt
+    this.ensureAudioContext();
+
+    if (this.gainNode && this.audioCtx) {
+      // Điều khiển âm lượng thực qua GainNode (cho phép khuếch đại vượt 100% đến 1000%)
+      this.gainNode.gain.setValueAtTime(rounded, this.audioCtx.currentTime);
+      this.audio.volume = 1.0;
+    } else {
+      // Fallback HTML5 volume chuẩn [0.0, 1.0]
+      this.audio.volume = Math.min(1.0, rounded / 10);
+    }
     
-    // HTML5 Audio volume nhận dải [0.0, 1.0]
-    this.audio.volume = rounded / 10;
-    
+    // Cập nhật nhãn hiển thị trực quan
     if (this.volumeDisplay) {
-      this.volumeDisplay.textContent = `${rounded.toFixed(1)} / 10`;
+      this.volumeDisplay.textContent = `${rounded.toFixed(1)}x`;
     }
     if (this.volumePercent) {
-      this.volumePercent.textContent = `${Math.round(rounded * 10)}%`;
+      const pct = Math.round(rounded * 100);
+      if (rounded === 0) {
+        this.volumePercent.textContent = '0% (Mute)';
+      } else if (rounded === 1.0) {
+        this.volumePercent.textContent = '100% (Gốc)';
+      } else if (rounded > 1.0) {
+        this.volumePercent.textContent = `${pct}% (Boost ⚡)`;
+      } else {
+        this.volumePercent.textContent = `${pct}%`;
+      }
     }
     
     this.updateVolumeIcon(rounded);
@@ -392,7 +470,7 @@ class AudioApp {
   updateVolumeIcon(val) {
     if (val === 0) {
       this.volumeIcon.textContent = '🔇';
-    } else if (val < 5.0) {
+    } else if (val <= 1.0) {
       this.volumeIcon.textContent = '🔉';
     } else {
       this.volumeIcon.textContent = '🔊';
@@ -400,12 +478,13 @@ class AudioApp {
   }
 
   toggleMute() {
+    this.ensureAudioContext();
     const curVal = parseFloat(this.volumeBar.value);
     if (curVal > 0) {
       this.prevVolume = curVal;
       this.handleVolumeChange(0);
     } else {
-      this.handleVolumeChange(this.prevVolume || 8.5);
+      this.handleVolumeChange(this.prevVolume || 1.0);
     }
   }
 
@@ -413,6 +492,7 @@ class AudioApp {
    * Tạo âm thanh demo
    */
   handleDemoClick() {
+    this.ensureAudioContext();
     const demoFile = AudioDemoSynth.createDemoFile('demo-ambient.wav', 8.0);
     this.handleFile(demoFile);
   }
@@ -440,8 +520,8 @@ class AudioApp {
    * Khôi phục cài đặt & file âm thanh đã lưu từ phiên trước
    */
   async restoreSession() {
-    // 1. Khôi phục âm lượng (Thang 0 -> 10)
-    const savedVol = AudioStorage.getVolume(8.5);
+    // 1. Khôi phục âm lượng
+    const savedVol = AudioStorage.getVolume(1.0);
     this.handleVolumeChange(savedVol);
 
     // 2. Khôi phục tốc độ

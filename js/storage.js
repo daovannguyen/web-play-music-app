@@ -1,7 +1,7 @@
 ﻿/**
  * storage.js - Quản lý lưu trữ dữ liệu (IndexedDB & LocalStorage)
  * - IndexedDB: Lưu trữ file âm thanh (Blob lớn) an toàn và không bị mất khi F5.
- * - LocalStorage: Lưu cấu hình người dùng (tốc độ, âm lượng, tiến trình phát).
+ * - LocalStorage: Lưu cấu hình người dùng (tốc độ, âm lượng khuếch đại, tiến trình phát).
  */
 
 const STORAGE_KEYS = {
@@ -126,17 +126,16 @@ const AudioStorage = {
   },
 
   /**
-   * Lưu và lấy âm lượng (Thang đo 0 đến 10)
+   * Lưu và lấy âm lượng khuếch đại (0x đến 10x, chuẩn 1.0x = 100%)
    */
   saveVolume(vol) {
     localStorage.setItem(STORAGE_KEYS.VOLUME, vol);
   },
-  getVolume(defaultVal = 8.5) {
+  getVolume(defaultVal = 1.0) {
     const v = localStorage.getItem(STORAGE_KEYS.VOLUME);
     if (v === null) return defaultVal;
     const parsed = parseFloat(v);
-    // Tương thích ngược: nếu giá trị cũ <= 1.0 thì chuyển đổi sang thang đo 10
-    return parsed <= 1.0 ? parsed * 10 : parsed;
+    return isNaN(parsed) ? defaultVal : Math.max(0, Math.min(10, parsed));
   },
 
   /**
