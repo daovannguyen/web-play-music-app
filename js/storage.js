@@ -126,14 +126,17 @@ const AudioStorage = {
   },
 
   /**
-   * Lưu và lấy âm lượng
+   * Lưu và lấy âm lượng (Thang đo 0 đến 10)
    */
   saveVolume(vol) {
     localStorage.setItem(STORAGE_KEYS.VOLUME, vol);
   },
-  getVolume(defaultVal = 0.85) {
+  getVolume(defaultVal = 8.5) {
     const v = localStorage.getItem(STORAGE_KEYS.VOLUME);
-    return v !== null ? parseFloat(v) : defaultVal;
+    if (v === null) return defaultVal;
+    const parsed = parseFloat(v);
+    // Tương thích ngược: nếu giá trị cũ <= 1.0 thì chuyển đổi sang thang đo 10
+    return parsed <= 1.0 ? parsed * 10 : parsed;
   },
 
   /**

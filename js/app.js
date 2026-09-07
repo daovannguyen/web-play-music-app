@@ -16,6 +16,7 @@ class AudioApp {
     this.currentSpeed = 1.0;
     this.lastSavedProgress = 0;
     this.pendingResumeTime = null;
+    this.prevVolume = 8.5;
 
     this.bindEvents();
     this.restoreSession();
@@ -32,8 +33,14 @@ class AudioApp {
     this.progressBar = document.getElementById('progressBar');
     this.currentTimeEl = document.getElementById('currentTime');
     this.totalDurationEl = document.getElementById('totalDuration');
+    
+    // Điều khiển âm lượng (Thang 0 -> 10, bước 0.1)
     this.volumeBar = document.getElementById('volumeBar');
     this.volumeIcon = document.getElementById('volumeIcon');
+    this.volumeDisplay = document.getElementById('volumeDisplay');
+    this.volMinusBtn = document.getElementById('volMinusBtn');
+    this.volPlusBtn = document.getElementById('volPlusBtn');
+
     this.fileInput = document.getElementById('fileInput');
     this.dropZone = document.getElementById('dropZone');
     this.trackTitle = document.getElementById('trackTitle');
@@ -72,9 +79,23 @@ class AudioApp {
     this.audio.addEventListener('loadedmetadata', () => this.handleLoadedMetadata());
     this.audio.addEventListener('ended', () => this.handleEnded());
 
-    // 5. Điều khiển âm lượng
-    this.volumeBar.addEventListener('input', (e) => this.handleVolumeChange(e.target.value));
+    // 5. Điều khiển âm lượng (Slider 0 -> 10, bước 0.1 & Nút +/- 0.5)
+    this.volumeBar.addEventListener('input', (e) => this.handleVolumeChange(parseFloat(e.target.value)));
     this.volumeIcon.addEventListener('click', () => this.toggleMute());
+    
+    if (this.volMinusBtn) {
+      this.volMinusBtn.addEventListener('click', () => {
+        const cur = parseFloat(this.volumeBar.value);
+        this.handleVolumeChange(cur - 0.5);
+      });
+    }
+
+    if (this.volPlusBtn) {
+      this.volPlusBtn.addEventListener('click', () => {
+        const cur = parseFloat(this.volumeBar.value);
+        this.handleVolumeChange(cur + 0.5);
+      });
+    }
 
     // 6. Điều khiển tốc độ (Nút chọn, Thanh trượt Slider, Nút tinh chỉnh +/- 0.1)
     this.speedButtons.forEach(btn => {
@@ -249,7 +270,6 @@ class AudioApp {
     this.progressBar.value = pct;
     this.currentTimeEl.textContent = this.formatTime(current);
 
-    // Lưu tiến trình định kỳ mỗi 1 giây
     if (Math.abs(current - this.lastSavedProgress) >= 1) {
       this.lastSavedProgress = current;
       AudioStorage.saveProgress(current);
@@ -288,7 +308,6 @@ class AudioApp {
    * Điều chỉnh tốc độ phát (.5 => 1.5, bước 0.1)
    */
   setSpeed(speed, shouldSave = true) {
-    // Làm tròn 1 chữ số thập phân và giới hạn trong khoảng 0.5 -> 1.5
     const rounded = Math.round(speed * 10) / 10;
     this.currentSpeed = Math.max(0.5, Math.min(1.5, rounded));
 
@@ -300,7 +319,6 @@ class AudioApp {
       this.speedRange.value = this.currentSpeed;
     }
 
-    // Cập nhật trạng thái active cho các nút tốc độ
     this.speedButtons.forEach(btn => {
       const btnSpeed = parseFloat(btn.dataset.speed);
       if (Math.abs(btnSpeed - this.currentSpeed) < 0.05) {
@@ -318,18 +336,28 @@ class AudioApp {
   }
 
   /**
-   * Điều chỉnh âm lượng
+   * Điều chỉnh âm lượng (Thang đo 0 đến 10, bước nhảy 0.1)
+   * @param {number} val Giá trị từ 0.0 đến 10.0
    */
-  handleVolumeChange(vol) {
-    this.audio.volume = vol;
-    AudioStorage.saveVolume(vol);
-    this.updateVolumeIcon(vol);
+  handleVolumeChange(val) {
+    const rounded = Math.max(0, Math.min(10, Math.round(val * 10) / 10));
+    this.volumeBar.value = rounded;
+    
+    // HTML5 Audio volume nhận dải [0.0, 1.0]
+    this.audio.volume = rounded / 10;
+    
+    if (this.volumeDisplay) {
+      this.volumeDisplay.textContent = `${rounded.toFixed(1)} / 10`;
+    }
+    
+    this.updateVolumeIcon(rounded);
+    AudioStorage.saveVolume(rounded);
   }
 
-  updateVolumeIcon(vol) {
-    if (vol == 0) {
+  updateVolumeIcon(val) {
+    if (val === 0) {
       this.volumeIcon.textContent = '🔇';
-    } else if (vol < 0.5) {
+    } else if (val < 5.0) {
       this.volumeIcon.textContent = '🔉';
     } else {
       this.volumeIcon.textContent = '🔊';
@@ -337,18 +365,13 @@ class AudioApp {
   }
 
   toggleMute() {
-    if (this.audio.volume > 0) {
-      this.audio.dataset.prevVol = this.audio.volume;
-      this.audio.volume = 0;
-      this.volumeBar.value = 0;
-      this.volumeIcon.textContent = '🔇';
+    const curVal = parseFloat(this.volumeBar.value);
+    if (curVal > 0) {
+      this.prevVolume = curVal;
+      this.handleVolumeChange(0);
     } else {
-      const restored = parseFloat(this.audio.dataset.prevVol || '0.85');
-      this.audio.volume = restored;
-      this.volumeBar.value = restored;
-      this.updateVolumeIcon(restored);
+      this.handleVolumeChange(this.prevVolume || 8.5);
     }
-    AudioStorage.saveVolume(this.audio.volume);
   }
 
   /**
@@ -382,11 +405,9 @@ class AudioApp {
    * Khôi phục cài đặt & file âm thanh đã lưu từ phiên trước
    */
   async restoreSession() {
-    // 1. Khôi phục âm lượng
-    const savedVol = AudioStorage.getVolume(0.85);
-    this.audio.volume = savedVol;
-    this.volumeBar.value = savedVol;
-    this.updateVolumeIcon(savedVol);
+    // 1. Khôi phục âm lượng (Thang 0 -> 10)
+    const savedVol = AudioStorage.getVolume(8.5);
+    this.handleVolumeChange(savedVol);
 
     // 2. Khôi phục tốc độ
     const savedSpeed = AudioStorage.getSpeed(1.0);
