@@ -39,8 +39,14 @@ class AudioApp {
     this.trackTitle = document.getElementById('trackTitle');
     this.trackMeta = document.getElementById('trackMeta');
     this.vinylDisc = document.getElementById('vinylDisc');
+    
+    // Tốc độ phát (Speed)
     this.speedDisplay = document.getElementById('speedDisplay');
+    this.speedRange = document.getElementById('speedRange');
+    this.speedMinusBtn = document.getElementById('speedMinusBtn');
+    this.speedPlusBtn = document.getElementById('speedPlusBtn');
     this.speedButtons = document.querySelectorAll('.speed-pill');
+    
     this.demoBtn = document.getElementById('demoBtn');
     this.clearBtn = document.getElementById('clearBtn');
     this.toast = document.getElementById('toast');
@@ -70,13 +76,31 @@ class AudioApp {
     this.volumeBar.addEventListener('input', (e) => this.handleVolumeChange(e.target.value));
     this.volumeIcon.addEventListener('click', () => this.toggleMute());
 
-    // 6. Nút thay đổi tốc độ
+    // 6. Điều khiển tốc độ (Nút chọn, Thanh trượt Slider, Nút tinh chỉnh +/- 0.1)
     this.speedButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const speed = parseFloat(btn.dataset.speed);
         this.setSpeed(speed, true);
       });
     });
+
+    if (this.speedRange) {
+      this.speedRange.addEventListener('input', (e) => {
+        this.setSpeed(parseFloat(e.target.value), true);
+      });
+    }
+
+    if (this.speedMinusBtn) {
+      this.speedMinusBtn.addEventListener('click', () => {
+        this.setSpeed(this.currentSpeed - 0.1, true);
+      });
+    }
+
+    if (this.speedPlusBtn) {
+      this.speedPlusBtn.addEventListener('click', () => {
+        this.setSpeed(this.currentSpeed + 0.1, true);
+      });
+    }
 
     // 7. Chọn tệp & Kéo thả (Drag & Drop)
     this.dropZone.addEventListener('click', () => this.fileInput.click());
@@ -124,7 +148,6 @@ class AudioApp {
       return;
     }
 
-    // Lưu vào IndexedDB & LocalStorage
     await AudioStorage.saveAudioBlob(file);
     AudioStorage.saveMetadata(file.name, file.size, file.type);
     AudioStorage.saveProgress(0);
@@ -262,21 +285,29 @@ class AudioApp {
   }
 
   /**
-   * Điều chỉnh tốc độ phát
+   * Điều chỉnh tốc độ phát (.5 => 1.5, bước 0.1)
    */
   setSpeed(speed, shouldSave = true) {
-    this.currentSpeed = speed;
+    // Làm tròn 1 chữ số thập phân và giới hạn trong khoảng 0.5 -> 1.5
+    const rounded = Math.round(speed * 10) / 10;
+    this.currentSpeed = Math.max(0.5, Math.min(1.5, rounded));
+
     this.audio.playbackRate = this.currentSpeed;
     this.audio.preservesPitch = true;
     this.speedDisplay.textContent = `${this.currentSpeed.toFixed(1)}x`;
 
+    if (this.speedRange) {
+      this.speedRange.value = this.currentSpeed;
+    }
+
+    // Cập nhật trạng thái active cho các nút tốc độ
     this.speedButtons.forEach(btn => {
       const btnSpeed = parseFloat(btn.dataset.speed);
-      if (btnSpeed === this.currentSpeed) {
-        btn.classList.add('active', 'bg-indigo-600', 'text-white', 'font-semibold');
+      if (Math.abs(btnSpeed - this.currentSpeed) < 0.05) {
+        btn.classList.add('active', 'bg-indigo-600', 'text-white', 'font-bold', 'shadow-md');
         btn.classList.remove('bg-slate-800', 'text-slate-300', 'font-medium');
       } else {
-        btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'font-semibold');
+        btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'font-bold', 'shadow-md');
         btn.classList.add('bg-slate-800', 'text-slate-300', 'font-medium');
       }
     });
