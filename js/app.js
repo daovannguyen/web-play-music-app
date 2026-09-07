@@ -38,6 +38,7 @@ class AudioApp {
     this.volumeBar = document.getElementById('volumeBar');
     this.volumeIcon = document.getElementById('volumeIcon');
     this.volumeDisplay = document.getElementById('volumeDisplay');
+    this.volumePercent = document.getElementById('volumePercent');
     this.volMinusBtn = document.getElementById('volMinusBtn');
     this.volPlusBtn = document.getElementById('volPlusBtn');
 
@@ -346,8 +347,12 @@ class AudioApp {
     // HTML5 Audio volume nhận dải [0.0, 1.0]
     this.audio.volume = rounded / 10;
     
+    // Cập nhật giá trị hiển thị rõ ràng: số mức và phần trăm
     if (this.volumeDisplay) {
       this.volumeDisplay.textContent = `${rounded.toFixed(1)} / 10`;
+    }
+    if (this.volumePercent) {
+      this.volumePercent.textContent = `${Math.round(rounded * 10)}%`;
     }
     
     this.updateVolumeIcon(rounded);
