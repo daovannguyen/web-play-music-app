@@ -171,23 +171,24 @@
         </div>
       </div>
 
-      <!-- Volume & Booster Control Section: 0 => 10, Step 0.1 -->
+      <!-- Volume Booster Section: 0 => 10, Step 0.1 (0 = Âm thanh gốc, tăng thêm tới +10) -->
       <div class="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 mt-3">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-1.5">
             <button id="volumeIcon" class="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 text-sm transition" title="Bật/Tắt tiếng">🔊</button>
-            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">⚡ Âm lượng (0x - 10x):</span>
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">⚡ Tăng âm lượng (0 - 10):</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <span id="volumePercent" class="text-[11px] font-mono text-slate-500 dark:text-slate-400">100% (Gốc)</span>
-            <span id="volumeDisplay" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 shadow-xs">1.0x</span>
+            <span id="volumePercent" class="text-[11px] font-mono text-slate-500 dark:text-slate-400">Âm thanh gốc</span>
+            <span id="volumeDisplay" class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 shadow-xs">+0.0</span>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <button id="volMinusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Giảm 0.5x">-0.5x</button>
-          <input type="range" id="volumeBar" min="0" max="10" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer">
-          <button id="volPlusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Tăng 0.5x">+0.5x</button>
+          <button id="volMinusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Giảm 0.5">-0.5</button>
+          <input type="range" id="volumeBar" min="0" max="10" step="0.1" value="0" class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer">
+          <button id="volPlusBtn" class="w-8 h-7 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Tăng 0.5">+0.5</button>
+          <button id="volResetBtn" class="px-2 h-7 rounded-lg bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-medium transition flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-xs" title="Đặt lại âm thanh gốc">↺ Gốc</button>
         </div>
       </div>
 

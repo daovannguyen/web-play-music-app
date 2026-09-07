@@ -2,7 +2,7 @@
  * app.js - Controller chính của ứng dụng Audio Speed
  * - Kết nối các module: StorageService, Visualizer, DemoSynth
  * - Điều khiển luồng sự kiện DOM, giao diện và phần tử Audio HTML5
- * - Tích hợp Web Audio API (GainNode + DynamicsCompressor) để khuếch đại âm thanh thực sự từ 0x đến 10x (1000%)
+ * - Tích hợp Web Audio API (GainNode + DynamicsCompressor) để TĂNG ÂM LƯỢNG SO VỚI GỐC (0 = gốc, tăng thêm đến +10x)
  */
 
 class AudioApp {
@@ -17,8 +17,8 @@ class AudioApp {
     });
 
     this.currentSpeed = 1.0;
-    this.currentVolume = 1.0; // 1.0x = 100% chuẩn, tối đa 10.0x = 1000% khuếch đại
-    this.prevVolume = 1.0;
+    this.boostValue = 0.0; // 0.0 = Âm thanh gốc (không tăng), 1.0 -> 10.0 = tăng thêm so với gốc
+    this.isMuted = false;
     this.lastSavedProgress = 0;
     this.pendingResumeTime = null;
 
@@ -44,13 +44,14 @@ class AudioApp {
     this.currentTimeEl = document.getElementById('currentTime');
     this.totalDurationEl = document.getElementById('totalDuration');
     
-    // Điều khiển âm lượng (Thang 0 -> 10, bước 0.1, khuếch đại thực tế tới 10x)
+    // Tăng âm lượng so với gốc (0 -> 10, bước 0.1)
     this.volumeBar = document.getElementById('volumeBar');
     this.volumeIcon = document.getElementById('volumeIcon');
     this.volumeDisplay = document.getElementById('volumeDisplay');
     this.volumePercent = document.getElementById('volumePercent');
     this.volMinusBtn = document.getElementById('volMinusBtn');
     this.volPlusBtn = document.getElementById('volPlusBtn');
+    this.volResetBtn = document.getElementById('volResetBtn');
 
     this.fileInput = document.getElementById('fileInput');
     this.dropZone = document.getElementById('dropZone');
@@ -73,7 +74,7 @@ class AudioApp {
   }
 
   /**
-   * Khởi tạo Web Audio API để khuếch đại âm lượng thực sự (GainNode)
+   * Khởi tạo Web Audio API để khuếch đại âm lượng so với gốc
    */
   ensureAudioContext() {
     if (this.audioCtx) {
@@ -90,9 +91,9 @@ class AudioApp {
       this.audioCtx = new AudioContextClass();
       this.gainNode = this.audioCtx.createGain();
       
-      // Compressor chống vỡ âm thanh khi khuếch đại lớn (lên tới 10x)
+      // Bộ nén âm chống rè/vỡ tiếng khi khuếch đại vượt mức gốc
       this.compressor = this.audioCtx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-10, this.audioCtx.currentTime);
+      this.compressor.threshold.setValueAtTime(-12, this.audioCtx.currentTime);
       this.compressor.knee.setValueAtTime(30, this.audioCtx.currentTime);
       this.compressor.ratio.setValueAtTime(12, this.audioCtx.currentTime);
       this.compressor.attack.setValueAtTime(0.003, this.audioCtx.currentTime);
@@ -103,8 +104,9 @@ class AudioApp {
       this.gainNode.connect(this.compressor);
       this.compressor.connect(this.audioCtx.destination);
 
-      // Cập nhật mức Gain theo giá trị hiện tại
-      this.gainNode.gain.setValueAtTime(this.currentVolume, this.audioCtx.currentTime);
+      // Mức Gain = 1.0 (âm thanh gốc) + boostValue (tăng thêm)
+      const targetGain = this.isMuted ? 0 : (1.0 + this.boostValue);
+      this.gainNode.gain.setValueAtTime(targetGain, this.audioCtx.currentTime);
     } catch (e) {
       console.warn('[AudioApp] Web Audio API init note:', e);
     }
@@ -157,10 +159,10 @@ class AudioApp {
     this.audio.addEventListener('loadedmetadata', () => this.handleLoadedMetadata());
     this.audio.addEventListener('ended', () => this.handleEnded());
 
-    // 5. Điều khiển âm lượng (Slider 0 -> 10, bước 0.1 & Nút +/- 0.5)
+    // 5. Tăng âm lượng so với gốc (0 -> 10, bước 0.1)
     this.volumeBar.addEventListener('input', (e) => {
       this.ensureAudioContext();
-      this.handleVolumeChange(parseFloat(e.target.value));
+      this.handleVolumeBoostChange(parseFloat(e.target.value));
     });
     this.volumeIcon.addEventListener('click', () => this.toggleMute());
     
@@ -168,7 +170,7 @@ class AudioApp {
       this.volMinusBtn.addEventListener('click', () => {
         this.ensureAudioContext();
         const cur = parseFloat(this.volumeBar.value);
-        this.handleVolumeChange(cur - 0.5);
+        this.handleVolumeBoostChange(cur - 0.5);
       });
     }
 
@@ -176,7 +178,14 @@ class AudioApp {
       this.volPlusBtn.addEventListener('click', () => {
         this.ensureAudioContext();
         const cur = parseFloat(this.volumeBar.value);
-        this.handleVolumeChange(cur + 0.5);
+        this.handleVolumeBoostChange(cur + 0.5);
+      });
+    }
+
+    if (this.volResetBtn) {
+      this.volResetBtn.addEventListener('click', () => {
+        this.ensureAudioContext();
+        this.handleVolumeBoostChange(0);
       });
     }
 
@@ -423,68 +432,63 @@ class AudioApp {
   }
 
   /**
-   * Điều chỉnh âm lượng & khuếch đại (Volume Booster: 0.0x -> 10.0x, bước 0.1)
-   * - 0.0x: Tắt tiếng (0%)
-   * - 1.0x: Mức chuẩn 100%
-   * - 2.0x -> 10.0x: Khuếch đại âm lượng lên đến 1000% bằng Web Audio GainNode
-   * @param {number} val Giá trị từ 0.0 đến 10.0
+   * TĂNG ÂM LƯỢNG SO VỚI GỐC:
+   * - 0.0: Âm thanh gốc (Gain = 1.0, không tăng thêm)
+   * - 0.1 -> 10.0: Tăng thêm so với gốc (Gain = 1.0 + boostValue)
+   *   Ví dụ: +1.0 = gấp đôi (+100% gốc), +5.0 = gấp 6 lần, +10.0 = gấp 11 lần
+   * @param {number} val Mức tăng từ 0.0 đến 10.0 (bước 0.1)
    */
-  handleVolumeChange(val) {
+  handleVolumeBoostChange(val) {
     const rounded = Math.max(0, Math.min(10, Math.round(val * 10) / 10));
-    this.currentVolume = rounded;
+    this.boostValue = rounded;
     this.volumeBar.value = rounded;
+    this.isMuted = false;
 
-    // Đảm bảo Web Audio API được kích hoạt
     this.ensureAudioContext();
 
+    // Mức âm thanh thực = 1.0 (gốc) + boostValue (tăng thêm)
+    const actualGain = 1.0 + rounded;
+
     if (this.gainNode && this.audioCtx) {
-      // Điều khiển âm lượng thực qua GainNode (cho phép khuếch đại vượt 100% đến 1000%)
-      this.gainNode.gain.setValueAtTime(rounded, this.audioCtx.currentTime);
+      this.gainNode.gain.setValueAtTime(actualGain, this.audioCtx.currentTime);
       this.audio.volume = 1.0;
-    } else {
-      // Fallback HTML5 volume chuẩn [0.0, 1.0]
-      this.audio.volume = Math.min(1.0, rounded / 10);
     }
-    
-    // Cập nhật nhãn hiển thị trực quan
+
+    // Cập nhật giao diện
     if (this.volumeDisplay) {
-      this.volumeDisplay.textContent = `${rounded.toFixed(1)}x`;
+      this.volumeDisplay.textContent = `+${rounded.toFixed(1)}`;
     }
+
     if (this.volumePercent) {
-      const pct = Math.round(rounded * 100);
       if (rounded === 0) {
-        this.volumePercent.textContent = '0% (Mute)';
-      } else if (rounded === 1.0) {
-        this.volumePercent.textContent = '100% (Gốc)';
-      } else if (rounded > 1.0) {
-        this.volumePercent.textContent = `${pct}% (Boost ⚡)`;
+        this.volumePercent.textContent = 'Âm thanh gốc';
       } else {
-        this.volumePercent.textContent = `${pct}%`;
+        const percentAdd = Math.round(rounded * 100);
+        const totalX = (1.0 + rounded).toFixed(1);
+        this.volumePercent.textContent = `+${percentAdd}% (Gấp ${totalX} lần)`;
       }
     }
-    
-    this.updateVolumeIcon(rounded);
-    AudioStorage.saveVolume(rounded);
-  }
 
-  updateVolumeIcon(val) {
-    if (val === 0) {
-      this.volumeIcon.textContent = '🔇';
-    } else if (val <= 1.0) {
-      this.volumeIcon.textContent = '🔉';
-    } else {
-      this.volumeIcon.textContent = '🔊';
-    }
+    this.volumeIcon.textContent = '🔊';
+    AudioStorage.saveVolume(rounded);
   }
 
   toggleMute() {
     this.ensureAudioContext();
-    const curVal = parseFloat(this.volumeBar.value);
-    if (curVal > 0) {
-      this.prevVolume = curVal;
-      this.handleVolumeChange(0);
+    if (!this.isMuted) {
+      this.isMuted = true;
+      if (this.gainNode && this.audioCtx) {
+        this.gainNode.gain.setValueAtTime(0, this.audioCtx.currentTime);
+      }
+      this.volumeIcon.textContent = '🔇';
+      if (this.volumePercent) this.volumePercent.textContent = 'Đã tắt tiếng (Mute)';
     } else {
-      this.handleVolumeChange(this.prevVolume || 1.0);
+      this.isMuted = false;
+      const actualGain = 1.0 + this.boostValue;
+      if (this.gainNode && this.audioCtx) {
+        this.gainNode.gain.setValueAtTime(actualGain, this.audioCtx.currentTime);
+      }
+      this.handleVolumeBoostChange(this.boostValue);
     }
   }
 
@@ -520,9 +524,9 @@ class AudioApp {
    * Khôi phục cài đặt & file âm thanh đã lưu từ phiên trước
    */
   async restoreSession() {
-    // 1. Khôi phục âm lượng
-    const savedVol = AudioStorage.getVolume(1.0);
-    this.handleVolumeChange(savedVol);
+    // 1. Khôi phục mức tăng âm lượng so với gốc (mặc định 0 = gốc)
+    const savedBoost = AudioStorage.getVolume(0.0);
+    this.handleVolumeBoostChange(savedBoost);
 
     // 2. Khôi phục tốc độ
     const savedSpeed = AudioStorage.getSpeed(1.0);
