@@ -39,6 +39,11 @@
   <!-- Main Mobile App Shell -->
   <main class="w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
     
+    <!-- Toast Notification for Restore -->
+    <div id="toast" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-emerald-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full shadow-lg transition-all duration-300 opacity-0 pointer-events-none -translate-y-3 flex items-center gap-1.5">
+      <span>💾</span> <span id="toastText">Đã khôi phục phiên nghe trước!</span>
+    </div>
+
     <!-- Ambient Background Glow -->
     <div class="absolute -top-24 -left-24 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -54,9 +59,14 @@
           <p class="text-[11px] text-slate-400">Trình phát & đổi tốc độ nhạc</p>
         </div>
       </div>
-      <button id="demoBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-indigo-400 font-medium transition flex items-center gap-1.5 border border-slate-700">
-        <span>✨</span> Demo
-      </button>
+      <div class="flex items-center gap-2">
+        <button id="clearBtn" class="text-xs px-2.5 py-1 rounded-full text-rose-400 hover:bg-rose-500/10 transition border border-rose-500/20 hidden">
+          Xóa
+        </button>
+        <button id="demoBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-indigo-400 font-medium transition flex items-center gap-1.5 border border-slate-700">
+          <span>✨</span> Demo
+        </button>
+      </div>
     </header>
 
     <!-- Upload Dropzone -->
@@ -68,7 +78,7 @@
         </div>
         <div>
           <p class="text-xs font-semibold text-slate-200">Tải lên file âm thanh</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">Kéo thả hoặc click để chọn (MP3, WAV, M4A, FLAC)</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Tự động lưu lại, reload trang không mất</p>
         </div>
       </div>
     </div>
@@ -78,20 +88,18 @@
       <!-- Vinyl / Artwork -->
       <div class="relative flex items-center justify-center mb-4">
         <div id="vinylDisc" class="w-28 h-28 rounded-full border-4 border-slate-800 bg-gradient-to-tr from-slate-950 via-slate-800 to-slate-900 shadow-xl flex items-center justify-center relative">
-          <!-- Grooves -->
           <div class="w-20 h-20 rounded-full border border-slate-700/50 flex items-center justify-center">
             <div class="w-14 h-14 rounded-full border border-slate-700/40 flex items-center justify-center">
               <span class="text-2xl">🎧</span>
             </div>
           </div>
-          <!-- Center Hole -->
           <div class="w-8 h-8 rounded-full bg-slate-900 border-2 border-indigo-500 absolute flex items-center justify-center">
             <div class="w-2.5 h-2.5 rounded-full bg-indigo-400"></div>
           </div>
         </div>
       </div>
 
-      <h2 id="trackTitle" class="text-sm font-bold text-center px-4 truncate max-w-full text-slate-100">Chưa chọn bài hát</h2>
+      <h2 id="trackTitle" class="text-sm font-bold text-center px-4 truncate max-w-full text-slate-100">Chưa có bài hát</h2>
       <p id="trackMeta" class="text-xs text-slate-400 mt-0.5">Sẵn sàng phát nhạc</p>
 
       <!-- Waveform Canvas -->
@@ -151,6 +159,68 @@
   <audio id="audioElement" preload="metadata"></audio>
 
   <script>
+    // --- IndexedDB & LocalStorage Keys ---
+    const DB_NAME = 'AudioSpeedAppDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'audioStore';
+
+    const STORAGE_KEYS = {
+      SPEED: 'audio_speed',
+      VOLUME: 'audio_volume',
+      PROGRESS: 'audio_progress',
+      FILE_NAME: 'audio_file_name',
+      FILE_SIZE: 'audio_file_size',
+      FILE_TYPE: 'audio_file_type'
+    };
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function saveAudioBlob(blob) {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(blob, 'lastTrack');
+      } catch (err) {
+        console.error('Lỗi lưu IndexedDB:', err);
+      }
+    }
+
+    async function getSavedAudioBlob() {
+      try {
+        const db = await openDB();
+        return new Promise((resolve) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const req = tx.objectStore(STORE_NAME).get('lastTrack');
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        });
+      } catch (err) {
+        return null;
+      }
+    }
+
+    async function clearSavedData() {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete('lastTrack');
+      } catch (err) {}
+      Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+    }
+
+    // --- DOM Elements ---
     const audio = document.getElementById('audioElement');
     const playBtn = document.getElementById('playBtn');
     const rewindBtn = document.getElementById('rewindBtn');
@@ -168,44 +238,98 @@
     const speedDisplay = document.getElementById('speedDisplay');
     const speedButtons = document.querySelectorAll('.speed-pill');
     const demoBtn = document.getElementById('demoBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toastText');
     const canvas = document.getElementById('visualizer');
     const ctx = canvas.getContext('2d');
 
     let currentSpeed = 1.0;
     let animId = null;
+    let lastSavedProgressTime = 0;
+    let pendingResumeTime = null;
 
     function formatTime(sec) {
       if (isNaN(sec) || sec < 0) return '00:00';
       const m = Math.floor(sec / 60);
       const s = Math.floor(sec % 60);
-      return ${m < 10 ? '0' + m : m}:;
+      return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
     }
 
-    function loadAudioFile(file) {
-      if (!file || !file.type.startsWith('audio/')) {
-        alert('Vui lòng chọn định dạng file âm thanh hợp lệ.');
-        return;
+    function showToast(msg) {
+      toastText.textContent = msg;
+      toast.classList.remove('opacity-0', '-translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2500);
+    }
+
+    function setSpeed(speed, shouldSave = true) {
+      currentSpeed = speed;
+      audio.playbackRate = currentSpeed;
+      audio.preservesPitch = true;
+      speedDisplay.textContent = currentSpeed.toFixed(1) + 'x';
+
+      speedButtons.forEach(btn => {
+        if (parseFloat(btn.dataset.speed) === currentSpeed) {
+          btn.classList.add('active', 'bg-indigo-600', 'text-white', 'font-semibold');
+          btn.classList.remove('bg-slate-800', 'text-slate-300', 'font-medium');
+        } else {
+          btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'font-semibold');
+          btn.classList.add('bg-slate-800', 'text-slate-300', 'font-medium');
+        }
+      });
+
+      if (shouldSave) {
+        localStorage.setItem(STORAGE_KEYS.SPEED, currentSpeed);
       }
-      const fileUrl = URL.createObjectURL(file);
+    }
+
+    function loadAudioBlob(blob, name, size, type, resumeProgress = 0, autoPlay = false) {
+      if (audio.src) URL.revokeObjectURL(audio.src);
+      const fileUrl = URL.createObjectURL(blob);
       audio.src = fileUrl;
       audio.playbackRate = currentSpeed;
       audio.preservesPitch = true;
 
-      trackTitle.textContent = file.name;
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      trackMeta.textContent = ${file.type.split('/')[1]?.toUpperCase() || 'AUDIO'} •  MB;
+      trackTitle.textContent = name;
+      const sizeMB = size ? (size / (1024 * 1024)).toFixed(2) : '0';
+      const ext = (type && type.includes('/')) ? type.split('/')[1].toUpperCase() : 'AUDIO';
+      trackMeta.textContent = ext + ' • ' + sizeMB + ' MB';
+      clearBtn.classList.remove('hidden');
 
-      audio.play().then(() => updatePlayState(true)).catch(() => updatePlayState(false));
+      if (resumeProgress > 0) {
+        pendingResumeTime = resumeProgress;
+      }
+
+      if (autoPlay) {
+        audio.play().then(() => updatePlayState(true)).catch(() => updatePlayState(false));
+      }
     }
 
-    // Built-in synthetic audio generator for instant testing
-    function createDemoAudio() {
+    async function handleFile(file) {
+      if (!file || !file.type.startsWith('audio/')) {
+        alert('Vui lòng chọn file âm thanh hợp lệ.');
+        return;
+      }
+      await saveAudioBlob(file);
+      localStorage.setItem(STORAGE_KEYS.FILE_NAME, file.name);
+      localStorage.setItem(STORAGE_KEYS.FILE_SIZE, file.size);
+      localStorage.setItem(STORAGE_KEYS.FILE_TYPE, file.type);
+      localStorage.setItem(STORAGE_KEYS.PROGRESS, 0);
+
+      loadAudioBlob(file, file.name, file.size, file.type, 0, true);
+    }
+
+    // Audio Demo Synth
+    async function createDemoAudio() {
       const sampleRate = 22050;
-      const duration = 6.0;
+      const duration = 8.0;
       const totalSamples = sampleRate * duration;
       const buffer = new Float32Array(totalSamples);
       const notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
-
       for (let i = 0; i < totalSamples; i++) {
         const t = i / sampleRate;
         const noteIdx = Math.floor(t * 3) % notes.length;
@@ -213,11 +337,10 @@
         const env = Math.exp(-3 * ((t * 3) % 1));
         buffer[i] = Math.sin(2 * Math.PI * freq * t) * env * 0.4;
       }
-
       const wavBytes = encodeWav(buffer, sampleRate);
       const blob = new Blob([wavBytes], { type: 'audio/wav' });
-      const demoFile = new File([blob], 'demo-melody.wav', { type: 'audio/wav' });
-      loadAudioFile(demoFile);
+      const demoFile = new File([blob], 'demo-ambient.wav', { type: 'audio/wav' });
+      await handleFile(demoFile);
     }
 
     function encodeWav(samples, sampleRate) {
@@ -247,7 +370,21 @@
       return buffer;
     }
 
-    demoBtn.addEventListener('click', createDemoAudio);
+    demoBtn.addEventListener('click', () => createDemoAudio());
+
+    clearBtn.addEventListener('click', async () => {
+      audio.pause();
+      audio.src = '';
+      updatePlayState(false);
+      await clearSavedData();
+      trackTitle.textContent = 'Chưa có bài hát';
+      trackMeta.textContent = 'Sẵn sàng phát';
+      progressBar.value = 0;
+      currentTimeEl.textContent = '00:00';
+      totalDurationEl.textContent = '00:00';
+      clearBtn.classList.add('hidden');
+      showToast('Đã xóa dữ liệu lưu!');
+    });
 
     function updatePlayState(isPlaying) {
       if (isPlaying) {
@@ -276,38 +413,63 @@
     });
 
     rewindBtn.addEventListener('click', () => {
-      if (audio.currentTime) audio.currentTime = Math.max(0, audio.currentTime - 5);
+      if (audio.currentTime) {
+        audio.currentTime = Math.max(0, audio.currentTime - 5);
+        localStorage.setItem(STORAGE_KEYS.PROGRESS, audio.currentTime);
+      }
     });
     forwardBtn.addEventListener('click', () => {
-      if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+      if (audio.duration) {
+        audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+        localStorage.setItem(STORAGE_KEYS.PROGRESS, audio.currentTime);
+      }
     });
 
     audio.addEventListener('timeupdate', () => {
       if (!isNaN(audio.duration) && audio.duration > 0) {
         progressBar.value = (audio.currentTime / audio.duration) * 100;
         currentTimeEl.textContent = formatTime(audio.currentTime);
+
+        // Lưu tiến trình định kỳ mỗi giây
+        if (Math.abs(audio.currentTime - lastSavedProgressTime) >= 1) {
+          lastSavedProgressTime = audio.currentTime;
+          localStorage.setItem(STORAGE_KEYS.PROGRESS, audio.currentTime);
+        }
       }
     });
 
     audio.addEventListener('loadedmetadata', () => {
       totalDurationEl.textContent = formatTime(audio.duration);
-      currentTimeEl.textContent = '00:00';
-      progressBar.value = 0;
+      if (pendingResumeTime !== null && pendingResumeTime > 0 && pendingResumeTime < audio.duration) {
+        audio.currentTime = pendingResumeTime;
+        currentTimeEl.textContent = formatTime(pendingResumeTime);
+        progressBar.value = (pendingResumeTime / audio.duration) * 100;
+        showToast('Đã khôi phục tại ' + formatTime(pendingResumeTime));
+        pendingResumeTime = null;
+      } else {
+        currentTimeEl.textContent = formatTime(0);
+        progressBar.value = 0;
+      }
     });
 
     audio.addEventListener('ended', () => {
       updatePlayState(false);
       progressBar.value = 0;
       currentTimeEl.textContent = '00:00';
+      localStorage.setItem(STORAGE_KEYS.PROGRESS, 0);
     });
 
     progressBar.addEventListener('input', () => {
-      if (audio.duration) audio.currentTime = (progressBar.value / 100) * audio.duration;
+      if (audio.duration) {
+        audio.currentTime = (progressBar.value / 100) * audio.duration;
+        localStorage.setItem(STORAGE_KEYS.PROGRESS, audio.currentTime);
+      }
     });
 
-    audio.volume = 0.85;
+    // Volume
     volumeBar.addEventListener('input', (e) => {
       audio.volume = e.target.value;
+      localStorage.setItem(STORAGE_KEYS.VOLUME, audio.volume);
       volumeIcon.textContent = audio.volume == 0 ? '🔇' : (audio.volume < 0.5 ? '🔉' : '🔊');
     });
 
@@ -323,27 +485,19 @@
         volumeBar.value = restore;
         volumeIcon.textContent = '🔊';
       }
+      localStorage.setItem(STORAGE_KEYS.VOLUME, audio.volume);
     });
 
     speedButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        speedButtons.forEach(b => {
-          b.classList.remove('active', 'bg-indigo-600', 'text-white', 'font-semibold');
-          b.classList.add('bg-slate-800', 'text-slate-300', 'font-medium');
-        });
-        btn.classList.add('active', 'bg-indigo-600', 'text-white', 'font-semibold');
-        btn.classList.remove('bg-slate-800', 'text-slate-300');
-
-        currentSpeed = parseFloat(btn.dataset.speed);
-        audio.playbackRate = currentSpeed;
-        audio.preservesPitch = true;
-        speedDisplay.textContent = currentSpeed.toFixed(1) + 'x';
+        setSpeed(parseFloat(btn.dataset.speed), true);
       });
     });
 
+    // Drag & Drop
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) loadAudioFile(e.target.files[0]);
+      if (e.target.files.length > 0) handleFile(e.target.files[0]);
     });
 
     ['dragenter', 'dragover'].forEach(name => {
@@ -361,7 +515,7 @@
     });
 
     dropZone.addEventListener('drop', (e) => {
-      if (e.dataTransfer.files.length > 0) loadAudioFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
     });
 
     function drawIdleVisualizer() {
@@ -398,6 +552,38 @@
       if (animId) cancelAnimationFrame(animId);
       drawIdleVisualizer();
     }
+
+    // --- Khôi phục cấu hình & tiến trình khi khởi chạy ---
+    async function restoreSession() {
+      // 1. Phục hồi Volume
+      const savedVol = localStorage.getItem(STORAGE_KEYS.VOLUME);
+      if (savedVol !== null) {
+        audio.volume = parseFloat(savedVol);
+        volumeBar.value = savedVol;
+        volumeIcon.textContent = audio.volume == 0 ? '🔇' : (audio.volume < 0.5 ? '🔉' : '🔊');
+      } else {
+        audio.volume = 0.85;
+      }
+
+      // 2. Phục hồi Speed
+      const savedSpeed = localStorage.getItem(STORAGE_KEYS.SPEED);
+      if (savedSpeed !== null) {
+        setSpeed(parseFloat(savedSpeed), false);
+      }
+
+      // 3. Phục hồi File âm thanh từ IndexedDB & tiến trình nghe
+      const savedBlob = await getSavedAudioBlob();
+      const savedName = localStorage.getItem(STORAGE_KEYS.FILE_NAME);
+      const savedSize = localStorage.getItem(STORAGE_KEYS.FILE_SIZE);
+      const savedType = localStorage.getItem(STORAGE_KEYS.FILE_TYPE);
+      const savedProgress = parseFloat(localStorage.getItem(STORAGE_KEYS.PROGRESS) || '0');
+
+      if (savedBlob && savedName) {
+        loadAudioBlob(savedBlob, savedName, savedSize, savedType, savedProgress, false);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', restoreSession);
   </script>
 </body>
 </html>
